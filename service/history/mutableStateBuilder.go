@@ -957,6 +957,17 @@ func (e *mutableStateBuilder) GetCompletionEvent() (*workflow.HistoryEvent, bool
 	return completionEvent, true
 }
 
+// GetStartEvent retrieves the workflow start event from mutable state
+func (e *mutableStateBuilder) GetStartEvent() (*workflow.HistoryEvent, bool) {
+	startEvent, err := e.eventsCache.getEvent(e.executionInfo.DomainID, e.executionInfo.WorkflowID,
+		e.executionInfo.RunID, 1, 1, e.executionInfo.EventStoreVersion,
+		e.executionInfo.GetCurrentBranch())
+	if err != nil {
+		return nil, false
+	}
+	return startEvent, true
+}
+
 // DeletePendingChildExecution deletes details about a ChildExecutionInfo.
 func (e *mutableStateBuilder) DeletePendingChildExecution(initiatedEventID int64) {
 	delete(e.pendingChildExecutionInfoIDs, initiatedEventID)
@@ -1322,8 +1333,7 @@ func (e *mutableStateBuilder) addWorkflowExecutionStartedEventForContinueAsNew(d
 	}
 
 	event := e.hBuilder.AddWorkflowExecutionStartedEvent(req, &previousExecutionInfo.RunID)
-	e.ReplicateWorkflowExecutionStartedEvent(domainID, parentDomainID, execution, createRequest.GetRequestId(),
-		event.WorkflowExecutionStartedEventAttributes)
+	e.ReplicateWorkflowExecutionStartedEvent(domainID, parentDomainID, execution, createRequest.GetRequestId(), event)
 
 	return event
 }
@@ -1344,13 +1354,15 @@ func (e *mutableStateBuilder) AddWorkflowExecutionStartedEvent(execution workflo
 		parentDomainID = startRequest.ParentExecutionInfo.DomainUUID
 	}
 	e.ReplicateWorkflowExecutionStartedEvent(startRequest.GetDomainUUID(), parentDomainID,
-		execution, request.GetRequestId(), event.WorkflowExecutionStartedEventAttributes)
+		execution, request.GetRequestId(), event)
 
 	return event
 }
 
 func (e *mutableStateBuilder) ReplicateWorkflowExecutionStartedEvent(domainID string, parentDomainID *string,
-	execution workflow.WorkflowExecution, requestID string, event *workflow.WorkflowExecutionStartedEventAttributes) {
+	execution workflow.WorkflowExecution, requestID string, startEvent *workflow.HistoryEvent) {
+
+	event := startEvent.WorkflowExecutionStartedEventAttributes
 	e.executionInfo.DomainID = domainID
 	e.executionInfo.WorkflowID = execution.GetWorkflowId()
 	e.executionInfo.RunID = execution.GetRunId()
@@ -1395,6 +1407,9 @@ func (e *mutableStateBuilder) ReplicateWorkflowExecutionStartedEvent(domainID st
 	if event.CronSchedule != nil {
 		e.executionInfo.CronSchedule = event.GetCronSchedule()
 	}
+
+	e.eventsCache.putEvent(e.executionInfo.DomainID, e.executionInfo.WorkflowID, e.executionInfo.RunID,
+		1, startEvent)
 }
 
 func (e *mutableStateBuilder) AddDecisionTaskScheduledEvent() *decisionInfo {
@@ -1449,11 +1464,11 @@ func (e *mutableStateBuilder) ReplicateTransientDecisionTaskScheduled() *decisio
 	// since the next event ID is assigned at the very end of when
 	// all events are applied for replication.
 	// this is OK
-	// 1. if a failover happen just after this transient decisioon,
+	// 1. if a failover happen just after this transient decision,
 	// AddDecisionTaskStartedEvent will handle the correction of schedule ID
 	// and set the attempt to 0
 	// 2. if no failover happen during the life time of this transient decision
-	// then ReplicateDecisionTaskScheduledEvent will overwrite evenything
+	// then ReplicateDecisionTaskScheduledEvent will overwrite everything
 	// including the decision schedule ID
 	di := &decisionInfo{
 		Version:         e.GetCurrentVersion(),

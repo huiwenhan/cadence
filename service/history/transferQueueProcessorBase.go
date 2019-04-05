@@ -141,7 +141,7 @@ func (t *transferQueueProcessorBase) pushDecision(task *persistence.TransferTask
 
 func (t *transferQueueProcessorBase) recordWorkflowStarted(
 	domainID string, execution workflow.WorkflowExecution, workflowTypeName string,
-	startTimeUnixNano int64, workflowTimeout int32, taskID int64) error {
+	startTimeUnixNano int64, workflowTimeout int32, taskID int64, visibilityMemo map[string][]byte) error {
 	domain := defaultDomainName
 	isSampledEnabled := false
 	wid := execution.GetWorkflowId()
@@ -177,13 +177,14 @@ func (t *transferQueueProcessorBase) recordWorkflowStarted(
 		WorkflowTypeName: workflowTypeName,
 		StartTimestamp:   startTimeUnixNano,
 		WorkflowTimeout:  int64(workflowTimeout),
+		Memo:             visibilityMemo,
 	})
 }
 
 func (t *transferQueueProcessorBase) recordWorkflowClosed(
 	domainID string, execution workflow.WorkflowExecution, workflowTypeName string,
 	startTimeUnixNano int64, endTimeUnixNano int64, closeStatus workflow.WorkflowExecutionCloseStatus,
-	historyLength int64, taskID int64) error {
+	historyLength int64, taskID int64, visibilityMemo map[string][]byte) error {
 	// Record closing in visibility store
 	retentionSeconds := int64(0)
 	domain := defaultDomainName
@@ -228,6 +229,7 @@ func (t *transferQueueProcessorBase) recordWorkflowClosed(
 		Status:           closeStatus,
 		HistoryLength:    historyLength,
 		RetentionSeconds: retentionSeconds,
+		Memo:             visibilityMemo,
 	})
 }
 

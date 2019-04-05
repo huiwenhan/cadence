@@ -331,6 +331,14 @@ func (t *transferQueueActiveProcessorImpl) processDecisionTask(task *persistence
 	wfTypeName := executionInfo.WorkflowTypeName
 	startTimestamp := executionInfo.StartTimestamp
 
+	var visibilityMemo map[string][]byte
+	if shouldRecordWorkflowStarted(task) {
+		startEvent, ok := msBuilder.GetStartEvent()
+		if ok {
+			visibilityMemo = startEvent.WorkflowExecutionStartedEventAttributes.Memo
+		}
+	}
+
 	// NOTE: previously this section check whether mutable state has enabled
 	// sticky decision, if so convert the decision to a sticky decision.
 	// that logic has a bug which timer task for that sticky decision is not generated
@@ -346,14 +354,18 @@ func (t *transferQueueActiveProcessorImpl) processDecisionTask(task *persistence
 	// release the context lock since we no longer need mutable state builder and
 	// the rest of logic is making RPC call, which takes time.
 	release(nil)
-	if task.ScheduleID <= common.FirstEventID+2 || task.RecordVisibility {
-		err = t.recordWorkflowStarted(task.DomainID, execution, wfTypeName, startTimestamp.UnixNano(), workflowTimeout, task.GetTaskID())
+	if shouldRecordWorkflowStarted(task) {
+		err = t.recordWorkflowStarted(task.DomainID, execution, wfTypeName, startTimestamp.UnixNano(), workflowTimeout, task.GetTaskID(), visibilityMemo)
 		if err != nil {
 			return err
 		}
 	}
 
 	return t.pushDecision(task, tasklist, decisionTimeout)
+}
+
+func shouldRecordWorkflowStarted(task *persistence.TransferTaskInfo) bool {
+	return task.ScheduleID <= common.FirstEventID+2 || task.RecordVisibility
 }
 
 func (t *transferQueueActiveProcessorImpl) processCloseExecution(task *persistence.TransferTaskInfo) (retError error) {
@@ -413,11 +425,22 @@ func (t *transferQueueActiveProcessorImpl) processCloseExecution(task *persisten
 	workflowCloseStatus := getWorkflowExecutionCloseStatus(executionInfo.CloseStatus)
 	workflowHistoryLength := msBuilder.GetNextEventID() - 1
 
+	startEvent, ok := msBuilder.GetStartEvent()
+	var visibilityMemo map[string][]byte
+	if !ok {
+		if replyToParentWorkflow {
+			return &workflow.InternalServiceError{Message: "Unable to get workflow start event."}
+		}
+	} else {
+		visibilityMemo = startEvent.WorkflowExecutionStartedEventAttributes.Memo
+	}
+
 	// release the context lock since we no longer need mutable state builder and
 	// the rest of logic is making RPC call, which takes time.
 	release(nil)
 	err = t.recordWorkflowClosed(
-		domainID, execution, workflowTypeName, workflowStartTimestamp, workflowCloseTimestamp, workflowCloseStatus, workflowHistoryLength, task.GetTaskID(),
+		domainID, execution, workflowTypeName, workflowStartTimestamp, workflowCloseTimestamp, workflowCloseStatus,
+		workflowHistoryLength, task.GetTaskID(), visibilityMemo,
 	)
 	if err != nil {
 		return err

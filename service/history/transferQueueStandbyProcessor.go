@@ -230,10 +230,17 @@ func (t *transferQueueStandbyProcessorImpl) processDecisionTask(transferTask *pe
 		startTimestamp := executionInfo.StartTimestamp
 
 		markWorkflowAsOpen := transferTask.ScheduleID <= common.FirstEventID+2
+		var visibilityMemo map[string][]byte
+		if markWorkflowAsOpen {
+			startEvent, ok := msBuilder.GetStartEvent()
+			if ok {
+				visibilityMemo = startEvent.WorkflowExecutionStartedEventAttributes.Memo
+			}
+		}
 
 		if !isPending {
 			if markWorkflowAsOpen {
-				err := t.recordWorkflowStarted(transferTask.DomainID, execution, wfTypeName, startTimestamp.UnixNano(), workflowTimeout, transferTask.GetTaskID())
+				err := t.recordWorkflowStarted(transferTask.DomainID, execution, wfTypeName, startTimestamp.UnixNano(), workflowTimeout, transferTask.GetTaskID(), visibilityMemo)
 				if err != nil {
 					return err
 				}
@@ -249,7 +256,7 @@ func (t *transferQueueStandbyProcessorImpl) processDecisionTask(transferTask *pe
 		}
 
 		if markWorkflowAsOpen {
-			err = t.recordWorkflowStarted(transferTask.DomainID, execution, wfTypeName, startTimestamp.UnixNano(), workflowTimeout, transferTask.GetTaskID())
+			err = t.recordWorkflowStarted(transferTask.DomainID, execution, wfTypeName, startTimestamp.UnixNano(), workflowTimeout, transferTask.GetTaskID(), visibilityMemo)
 		}
 
 		now := t.shard.GetCurrentTime(t.clusterName)
@@ -308,6 +315,12 @@ func (t *transferQueueStandbyProcessorImpl) processCloseExecution(transferTask *
 		workflowCloseStatus := getWorkflowExecutionCloseStatus(executionInfo.CloseStatus)
 		workflowHistoryLength := msBuilder.GetNextEventID() - 1
 
+		startEvent, ok := msBuilder.GetStartEvent()
+		var visibilityMemo map[string][]byte
+		if ok {
+			visibilityMemo = startEvent.WorkflowExecutionStartedEventAttributes.Memo
+		}
+
 		ok, err := verifyTaskVersion(t.shard, t.logger, transferTask.DomainID, msBuilder.GetLastWriteVersion(), transferTask.Version, transferTask)
 		if err != nil {
 			return err
@@ -319,7 +332,8 @@ func (t *transferQueueStandbyProcessorImpl) processCloseExecution(transferTask *
 		// since event replication should be done by active cluster
 
 		return t.recordWorkflowClosed(
-			transferTask.DomainID, execution, workflowTypeName, workflowStartTimestamp, workflowCloseTimestamp, workflowCloseStatus, workflowHistoryLength, transferTask.GetTaskID(),
+			transferTask.DomainID, execution, workflowTypeName, workflowStartTimestamp, workflowCloseTimestamp,
+			workflowCloseStatus, workflowHistoryLength, transferTask.GetTaskID(), visibilityMemo,
 		)
 	}, standbyTaskPostActionNoOp) // no op post action, since the entire workflow is finished
 }

@@ -556,7 +556,7 @@ func (s *stateBuilderSuite) TestApplyEvents_EventTypeWorkflowExecutionContinuedA
 			RunId:      common.StringPtr(newRunID),
 		},
 		newRunStateBuilder.GetExecutionInfo().CreateRequestID,
-		newRunStartedEvent.WorkflowExecutionStartedEventAttributes,
+		newRunStartedEvent,
 	)
 	expectedNewRunStateBuilder.ReplicateWorkflowExecutionSignaled(newRunSignalEvent)
 	expectedNewRunStateBuilder.ReplicateDecisionTaskScheduledEvent(
@@ -883,7 +883,7 @@ func (s *stateBuilderSuite) TestApplyEvents_EventTypeWorkflowExecutionContinuedA
 			RunId:      common.StringPtr(newRunID),
 		},
 		newRunStateBuilder.GetExecutionInfo().CreateRequestID,
-		newRunStartedEvent.WorkflowExecutionStartedEventAttributes,
+		newRunStartedEvent,
 	)
 	expectedNewRunStateBuilder.ReplicateWorkflowExecutionSignaled(newRunSignalEvent)
 	expectedNewRunStateBuilder.ReplicateDecisionTaskScheduledEvent(

@@ -5,6 +5,7 @@ CREATE TABLE open_executions (
   run_id               uuid,
   start_time           timestamp,
   workflow_type_name   text,
+  memo                 blob,
   PRIMARY KEY  ((domain_id, domain_partition), start_time, run_id)
 ) WITH CLUSTERING ORDER BY (start_time DESC)
   AND COMPACTION = {
@@ -27,6 +28,7 @@ CREATE TABLE closed_executions (
   status               int,  -- enum WorkflowExecutionCloseStatus {COMPLETED, FAILED, CANCELED, TERMINATED, CONTINUED_AS_NEW, TIMED_OUT}
   workflow_type_name   text,
   history_length       bigint,
+  memo                 blob,
   PRIMARY KEY  ((domain_id, domain_partition), start_time, run_id)
 ) WITH CLUSTERING ORDER BY (start_time DESC)
   AND COMPACTION = {
@@ -50,6 +52,7 @@ CREATE TABLE closed_executions_v2 (
   status               int,  -- enum WorkflowExecutionCloseStatus {COMPLETED, FAILED, CANCELED, TERMINATED, CONTINUED_AS_NEW, TIMED_OUT}
   workflow_type_name   text,
   history_length       bigint,
+  memo                 blob,
   PRIMARY KEY  ((domain_id, domain_partition), close_time, run_id)
 ) WITH CLUSTERING ORDER BY (close_time DESC)
   AND COMPACTION = {
