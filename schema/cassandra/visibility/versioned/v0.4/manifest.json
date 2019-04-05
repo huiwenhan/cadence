@@ -1,0 +1,8 @@
+{
+  "CurrVersion": "0.4",
+  "MinCompatibleVersion": "0.4",
+  "Description": "add non-searchable field to cadence visibility",
+  "SchemaUpdateCqlFiles": [
+    "add_memo.cql"
+  ]
+}
