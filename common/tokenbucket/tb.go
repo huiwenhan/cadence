@@ -21,6 +21,7 @@
 package tokenbucket
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -74,6 +75,7 @@ type (
 		nextRefillTime         int64
 		nextOverflowRefillTime int64
 		timeSource             clock.TimeSource
+		count                  int
 	}
 
 	priorityTokenBucketImpl struct {
@@ -153,6 +155,10 @@ func (tb *tokenBucketImpl) TryConsume(count int) (bool, time.Duration) {
 		return false, nextRefillTime
 	}
 	tb.tokens -= count
+	tb.count += count
+	if tb.count%10 == 0 {
+		fmt.Printf("number of calls is %v\n", tb.count)
+	}
 	tb.Unlock()
 	return true, nextRefillTime
 }
