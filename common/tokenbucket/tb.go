@@ -25,6 +25,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/uber-common/bark"
+
 	"github.com/uber/cadence/common/clock"
 )
 
@@ -62,6 +64,7 @@ type (
 
 	tokenBucketImpl struct {
 		sync.Mutex
+		logger       bark.Logger
 		tokens       int
 		fillRate     int   // amount of tokens to add every interval
 		fillInterval int64 // time between refills
@@ -132,6 +135,14 @@ func New(rps int, timeSource clock.TimeSource) TokenBucket {
 	return tb
 }
 
+// NewWithService creates a tokenbucket with service
+func NewWithService(logger bark.Logger, rps int, timeSource clock.TimeSource) TokenBucket {
+	tb := new(tokenBucketImpl)
+	tb.timeSource = timeSource
+	tb.Reset(rps)
+	return tb
+}
+
 // NewFactory creates an instance of factory used for creating TokenBucket instances
 func NewFactory() Factory {
 	return &tokenBucketFactoryImpl{}
@@ -158,6 +169,7 @@ func (tb *tokenBucketImpl) TryConsume(count int) (bool, time.Duration) {
 	tb.count += count
 	if tb.count%10 == 0 {
 		fmt.Printf("number of calls is %v\n", tb.count)
+		tb.logger.Infof("number of calls is %v", tb.count)
 	}
 	tb.Unlock()
 	return true, nextRefillTime
