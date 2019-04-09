@@ -131,6 +131,7 @@ const (
 func New(rps int, timeSource clock.TimeSource) TokenBucket {
 	tb := new(tokenBucketImpl)
 	tb.timeSource = timeSource
+	tb.logger = bark.NewNopLogger()
 	tb.Reset(rps)
 	return tb
 }
@@ -139,6 +140,7 @@ func New(rps int, timeSource clock.TimeSource) TokenBucket {
 func NewWithService(logger bark.Logger, rps int, timeSource clock.TimeSource) TokenBucket {
 	tb := new(tokenBucketImpl)
 	tb.timeSource = timeSource
+	tb.logger = logger
 	tb.Reset(rps)
 	return tb
 }
